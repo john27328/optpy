@@ -88,7 +88,26 @@ class OptQ:
             if d2>=0:
                 rho0[1] = sqrt(d2)/c
             return rho0
-     
+
+class OptY:
+    optType = 2
+    def __repr__(self): # вывод названия класса
+        return "optY()"
+    def __str__(self): # печать с помощью print()
+        return  ('-' + 'rho = ' + str(self.rho * 1000) +
+              'мм,\n alpha = ' + str(self.R * 1000) + 
+              'мм, \n lambda = ' + str(self.lambdaP * 1e9) + 'нм')
+    #инициализация, в явном виде не нунжна, но возможно надо будет подправить     
+    def __init__(self,nx,ny, rho = 1, alpha = 0, lambdaP = HeNe): 
+        self.lambdaP = lambdaP
+        self.rho = np.ones((nx,ny)) * rho
+        self.alpha = np.ones((nx,ny)) * alpha
+        self.q = self.rho + 1j * self.alpha
+    def updateQ(self): # вычисление параметров пучка из комплекстных
+        self.rho = self.q.real
+        self.alpha = self.q.imag
+    def focus(self):
+        return - self.rho / self.alpha
      
 class OptM:
     optType = 0
@@ -138,6 +157,19 @@ class OptM:
             q2.q = (A * q1.q + B) / (C * q1.q + D)
             q2.updateQ()
             return q2
+        elif M2.optType == 2:
+            y1 = M2;
+            nx, ny, tmp, tmp = np.shape(self.M)
+            y2 = OptY(nx = nx, ny= ny,lambdaP = y1.lambdaP)
+            nx2, ny2 = np.shape(y1.q)
+            if nx != nx2 and ny != ny2:
+                raise IOError("не верный размер массива!")
+            A, B, C, D = OptM.abcdOpt(self)
+            y2.rho = A * y1.rho + B * y1.alpha
+            y2.alpha = C * y1.rho + D * y1.alpha
+            y2.q = y2.rho + 1j * y2.alpha
+            return y2
+            
     def inverseQ(self):
         M = OptM();
         M.M = np.linalg.inv(self.M)
@@ -331,6 +363,7 @@ def graf2d(x, y, z, title, xlabel, ylabel, nbins = 15, zMin='min', zMax='max'):
 # дописать!!!!!
 def lineOpt(res, q, nSpace = 100):
     # обязательно nx = 1
+    #print(q.q)
     nx,ny = np.shape(q.q)
     if nx != 1:
         raise IOError("nx должен равняться 1")
@@ -354,9 +387,7 @@ def lineOpt(res, q, nSpace = 100):
                 R.append([0]*ny)
                 for k in range(ny):
                     z[-1][k] = zi[k]
-                    if q2.rho[0][k] > 0:
-                        rho[-1][k] = q2.rho[0][k]
-                        R[-1][k] = q2.R[0][k]
+                    rho[-1][k] = abs(q2.rho[0][k])
         else:
             M = i * M
             q2 = M * q
@@ -364,15 +395,12 @@ def lineOpt(res, q, nSpace = 100):
             rho.append([0]*ny)
             R.append([0]*ny)
             for k in range(ny):
-                if q2.rho[0][k] > 0:
-                    z[-1][k] = zi[k]
-                    rho[-1][k] = q2.rho[0][k]
-                    R[-1][k] = q2.R[0][k]
+                z[-1][k] = zi[k]
+                rho[-1][k] = abs(q2.rho[0][k])
                     
     z = np.array(z)
     rho = np.array(rho)
-    R = np.array(R)
-    return z, rho, R
+    return z, rho
     
     #def grafRes(x,y,z):
 #    P=range(1,60)
